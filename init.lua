@@ -14,6 +14,7 @@ vim.opt.shiftwidth = 4     -- Size of an indent (when you hit >)
 vim.opt.tabstop = 4        -- Number of spaces that a <Tab> counts for
 vim.opt.softtabstop = 4    -- Number of spaces that a <Tab> counts for while editing
 vim.opt.expandtab = true   -- Convert tabs to spaces
+vim.opt.clipboard = "unnamedplus"
 
 require("lazy").setup({
 	{
@@ -67,9 +68,15 @@ require("lazy").setup({
 						Lua = { completion = { callSnippet = "Replace" } },
 					},
 				},
-                svelte = {},
-				-- pyright = {},
-				-- ts_ls = {},
+                svelte = {
+                  -- Use the standard name; Mason-lspconfig will find it in your path
+                  cmd = { "svelte-language-server", "--stdio" },
+                },
+				pyright = {},
+				ts_ls = {
+                filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact" },
+                -- This prevents ts_ls from trying to run inside .svelte files
+            },
 			}
 
 			-- Ensure tools (like formatters) are installed
@@ -113,16 +120,18 @@ require("lazy").setup({
     {
       'nvim-treesitter/nvim-treesitter',
       build = ':TSUpdate',
-      main = 'nvim-treesitter.config',
-      opts = {
-        ensure_installed = {
-          'bash', 'c', 'html', 'lua', 'luadoc', 'markdown', 'vim', 'vimdoc',
-          "svelte", 'typescript', 'javascript', 'css'
-        },
-        auto_install = true,
-        highlight = { enable = {}, },
-        indent = { enable = true },
-      },
+      config = function()
+        require('nvim-treesitter.config').setup({
+          ensure_installed = { 
+            'bash', 'html', 'lua', 'svelte', 'typescript', 'javascript', 'css' 
+          },
+          highlight = {
+            enable = true,
+            additional_vim_regex_highlighting = false,
+          },
+          indent = { enable = true },
+        })
+      end
     },
 	{
 		"nvim-lualine/lualine.nvim",
@@ -149,5 +158,11 @@ require("lazy").setup({
 		version = "v2.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
 		build = "make install_jsregexp"
 	},
+})
 
+vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+  pattern = { "*.svelte", "*.ts", "*.js" },
+  callback = function()
+    vim.treesitter.start()
+  end,
 })
