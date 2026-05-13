@@ -47,9 +47,9 @@ require("lazy").setup({
 			})
 
 			vim.diagnostic.config({
-				virtual_text = true, -- set to false to hide inline text
-				signs = false, -- set to false to hide E/W signs in the sign column
-				update_in_insert = false, -- set to true to show errors while typing
+				virtual_text = true,
+				signs = false,
+				update_in_insert = false,
 				float = {
 					source = "always",
 					border = "single",
@@ -61,7 +61,6 @@ require("lazy").setup({
 			-- Standard LSP capabilities
 			local capabilities = require("blink.cmp").get_lsp_capabilities()
 
-			-- Add the servers you want automatically installed here
 			local servers = {
 				lua_ls = {
 					settings = {
@@ -69,17 +68,34 @@ require("lazy").setup({
 					},
 				},
                 svelte = {
-                  -- Use the standard name; Mason-lspconfig will find it in your path
                   cmd = { "svelte-language-server", "--stdio" },
+                },
+                gopls = {
+                    settings = {
+                        gopls = {
+                            semanticTokens = true,
+                            analyses = {
+                                unusedparams = true,
+                                nilness = true,
+                                unusedwrite = true,
+                            },
+                            staticcheck = true,
+                            hints = {
+                                assignVariableTypes = true,
+                                compositeLiteralFields = true,
+                                parameterNames = true,
+                            },
+                        },
+                    },
+                },
+                clangd = {
+                    cmd = { "clangd", "--background-index", "--clang-tidy" },
                 },
 				pyright = {},
 				ts_ls = {
                 filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact" },
-                -- This prevents ts_ls from trying to run inside .svelte files
             },
 			}
-
-			-- Ensure tools (like formatters) are installed
 			local ensure_installed = vim.tbl_keys(servers or {})
 			vim.list_extend(ensure_installed, { "stylua" })
 			require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
@@ -104,11 +120,31 @@ require("lazy").setup({
 			sources = { default = { "lsp", "path", "snippets", "buffer" } },
 		},
 	},
-	{
-		"catppuccin/nvim",
-		name = "catppuccin",
-		priority = 1000
-	},
+    {
+        "catppuccin/nvim",
+        name = "catppuccin",
+        priority = 1000,
+        config = function()
+            require("catppuccin").setup({
+                flavour = "latte",
+                integrations = {
+                    treesitter = true,
+                    native_lsp = {
+                        enabled = true,
+                        underlines = {
+                            errors = { "undercurl" },
+                            hints = { "undercurl" },
+                            warnings = { "undercurl" },
+                            information = { "undercurl" },
+                        },
+                    },
+                    semantic_tokens = true, -- Add this line
+                },
+            })
+
+            vim.cmd.colorscheme("catppuccin")
+        end,
+    },
 	{
 		"nvim-telescope/telescope.nvim",
 		version = "*",
@@ -122,8 +158,8 @@ require("lazy").setup({
       build = ':TSUpdate',
       config = function()
         require('nvim-treesitter.config').setup({
-          ensure_installed = { 
-            'bash', 'html', 'lua', 'svelte', 'typescript', 'javascript', 'css' 
+          ensure_installed = {
+            'bash', 'html', 'lua', 'svelte', 'typescript', 'javascript', 'css', 'go', 'gomod', 'c'
           },
           highlight = {
             enable = true,
@@ -138,30 +174,100 @@ require("lazy").setup({
 		dependencies = { "nvim-tree/nvim-web-devicons" },
 	},
 	{
-		"navarasu/onedark.nvim",
-		version = "v0.1.0",
-		priority = 1000,
-		config = function()
-			require("onedark").setup({
-				style = "darker",
-			})
-			require("onedark").load()
-		end,
-	},
-	{
 		"folke/todo-comments.nvim",
 		dependencies = { "nvim-lua/plenary.nvim" },
 		opts = {}
 	},
 	{
 		"L3MON4D3/LuaSnip",
-		version = "v2.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
+		version = "v2.*",
 		build = "make install_jsregexp"
 	},
+    {
+        "lewis6991/gitsigns.nvim",
+        opts = {
+            signs = {
+                add          = { text = '┃' },
+                change       = { text = '┃' },
+                delete       = { text = '_' },
+                topdelete    = { text = '‾' },
+                changedelete = { text = '~' },
+                untracked    = { text = '┆' },
+            },
+            on_attach = function(bufnr)
+                local gitsigns = require('gitsigns')
+
+                local function map(mode, l, r, opts)
+                    opts = opts or {}
+                    opts.buffer = bufnr
+                    vim.keymap.set(mode, l, r, opts)
+                end
+
+                map('n', ']c', function()
+                    if vim.wo.diff then vim.cmd.feedkeys(']c', 'n') else gitsigns.nav_hunk('next') end
+                end, { desc = 'Next Hunk' })
+
+                map('n', '[c', function()
+                    if vim.wo.diff then vim.cmd.feedkeys('[c', 'n') else gitsigns.nav_hunk('prev') end
+                end, { desc = 'Prev Hunk' })
+
+                map('n', '<leader>hs', gitsigns.stage_hunk, { desc = 'Git [S]tage Hunk' })
+                map('n', '<leader>hr', gitsigns.reset_hunk, { desc = 'Git [R]eset Hunk' })
+                map('n', '<leader>hp', gitsigns.preview_hunk, { desc = 'Git [P]review Hunk' })
+                map('n', '<leader>hb', function() gitsigns.blame_line{full=true} end, { desc = 'Git [B]lame Line' })
+            end
+        }
+    },
+    {
+        "nvim-lualine/lualine.nvim",
+        dependencies = { "nvim-tree/nvim-web-devicons" },
+        config = function()
+            local cp = require("catppuccin.palettes").get_palette("latte")
+
+            require('lualine').setup({
+                options = {
+                    theme = 'catppuccin',
+                    -- These are the "Powerline" arrow shapes you liked
+                    component_separators = { left = '', right = '' },
+                    section_separators = { left = '', right = '' },
+                    globalstatus = true,
+                },
+                sections = {
+                    lualine_a = { { 'mode', gui = 'bold' } },
+                    lualine_b = {
+                        { 'branch', icon = '', color = { fg = cp.mauve, bg = cp.mantle } },
+                        { 'diff', colored = true, color = { bg = cp.mantle } },
+                    },
+                    lualine_c = {
+                        {
+                            'filename',
+                            path = 1,
+                            file_status = true,
+                            color = { fg = cp.text, bg = cp.base }
+                        },
+                    },
+                    lualine_x = {
+                        {
+                            'diagnostics',
+                            symbols = { error = ' ', warn = ' ', info = ' ', hint = '󰌶 ' },
+                            color = { bg = cp.base }
+                        },
+                        { 'filetype', color = { fg = cp.subtext1, bg = cp.base } }
+                    },
+
+                    -- Section Y/Z (Location)
+                    lualine_y = { { 'progress', color = { bg = cp.mantle } } },
+                    lualine_z = { { 'location', gui = 'bold' } },
+                },
+            })
+        end
+    },
 })
 
+vim.opt.number = true
+vim.opt.signcolumn = "yes"
 vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-  pattern = { "*.svelte", "*.ts", "*.js" },
+  pattern = { "*.svelte", "*.ts", "*.js", "*.go" },
   callback = function()
     vim.treesitter.start()
   end,
